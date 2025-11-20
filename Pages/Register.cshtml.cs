@@ -53,6 +53,12 @@ public class RegisterPageModel : PageModel
                 new Claim(ClaimTypes.Name, credential.User.Info.DisplayName ?? Input.DisplayName ?? "User"),
             };
 
+            // Add newsletter subscription claim if user opted in
+            if (Input.SubscribeToNewsletter)
+            {
+                claims.Add(new Claim("newsletter_subscription", "true"));
+            }
+
             var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
             var authProperties = new AuthenticationProperties
             {
@@ -65,7 +71,8 @@ public class RegisterPageModel : PageModel
                 new ClaimsPrincipal(claimsIdentity),
                 authProperties);
 
-            _logger.LogInformation("User registered successfully: {Email}", Input.Email);
+            _logger.LogInformation("User registered successfully: {Email}, Newsletter: {Newsletter}", 
+                Input.Email, Input.SubscribeToNewsletter);
 
             return LocalRedirect(returnUrl);
         }

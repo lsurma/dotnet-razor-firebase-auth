@@ -23,4 +23,7 @@ public class RegisterModel
 
     [Display(Name = "Display Name")]
     public string? DisplayName { get; set; }
+
+    [Display(Name = "Subscribe to newsletter")]
+    public bool SubscribeToNewsletter { get; set; }
 }
