@@ -94,13 +94,44 @@ public class RegisterPageModel : PageModel
 
     public async Task<IActionResult> OnGetGoogleResponseAsync()
     {
-        var result = await HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        // Authenticate using the external authentication scheme
+        var result = await HttpContext.AuthenticateAsync(GoogleDefaults.AuthenticationScheme);
         
         if (!result.Succeeded)
         {
             ErrorMessage = "Google authentication failed.";
             return RedirectToPage();
         }
+
+        // Extract user information from the external authentication result
+        var externalUser = result.Principal;
+        if (externalUser == null)
+        {
+            ErrorMessage = "Unable to retrieve user information from Google.";
+            return RedirectToPage();
+        }
+
+        // Create claims for the user
+        var claims = new List<Claim>
+        {
+            new Claim(ClaimTypes.NameIdentifier, externalUser.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? Guid.NewGuid().ToString()),
+            new Claim(ClaimTypes.Email, externalUser.FindFirst(ClaimTypes.Email)?.Value ?? ""),
+            new Claim(ClaimTypes.Name, externalUser.FindFirst(ClaimTypes.Name)?.Value ?? "User"),
+            new Claim(NewsletterSubscriptionClaimType, "false") // Default newsletter to false for social registration
+        };
+
+        var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
+        var authProperties = new AuthenticationProperties
+        {
+            IsPersistent = true,
+            ExpiresUtc = DateTimeOffset.UtcNow.AddMinutes(30)
+        };
+
+        // Sign in the user with cookie authentication
+        await HttpContext.SignInAsync(
+            CookieAuthenticationDefaults.AuthenticationScheme,
+            new ClaimsPrincipal(claimsIdentity),
+            authProperties);
 
         _logger.LogInformation("User registered with Google successfully");
 
