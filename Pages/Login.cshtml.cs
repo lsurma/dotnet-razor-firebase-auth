@@ -4,15 +4,21 @@ using FirebaseAuthApp.Models;
 using FirebaseAuthApp.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Authentication.Google;
 using System.Security.Claims;
 
 namespace FirebaseAuthApp.Pages;
+
+public class FirebaseTokenRequest
+{
+    public string IdToken { get; set; } = string.Empty;
+    public bool RememberMe { get; set; }
+}
 
 public class LoginPageModel : PageModel
 {
     private readonly IFirebaseAuthService _firebaseAuthService;
     private readonly ILogger<LoginPageModel> _logger;
+    private readonly IConfiguration _configuration;
 
     [BindProperty]
     public LoginModel Input { get; set; } = new();
@@ -20,44 +26,48 @@ public class LoginPageModel : PageModel
     [TempData]
     public string? ErrorMessage { get; set; }
 
-    public LoginPageModel(IFirebaseAuthService firebaseAuthService, ILogger<LoginPageModel> logger)
+    public FirebaseConfig FirebaseConfig { get; set; } = new();
+
+    public LoginPageModel(IFirebaseAuthService firebaseAuthService, ILogger<LoginPageModel> logger, IConfiguration configuration)
     {
         _firebaseAuthService = firebaseAuthService;
         _logger = logger;
+        _configuration = configuration;
     }
 
     public void OnGet()
     {
+        FirebaseConfig = _configuration.GetSection("Firebase").Get<FirebaseConfig>() ?? new FirebaseConfig();
     }
 
-    public async Task<IActionResult> OnPostAsync(string? returnUrl = null)
+    public async Task<IActionResult> OnPostFirebaseTokenAsync([FromBody] FirebaseTokenRequest request)
     {
-        returnUrl ??= Url.Content("~/");
-
-        if (!ModelState.IsValid)
-        {
-            return Page();
-        }
-
         try
         {
-            var credential = await _firebaseAuthService.SignInWithEmailPasswordAsync(
-                Input.Email,
-                Input.Password);
+            if (string.IsNullOrEmpty(request.IdToken))
+            {
+                return new BadRequestObjectResult("Invalid token");
+            }
+
+            // Verify the Firebase ID token
+            var decodedToken = await _firebaseAuthService.VerifyIdTokenAsync(request.IdToken);
+            
+            // Get user information
+            var userRecord = await _firebaseAuthService.GetUserAsync(decodedToken.Uid);
 
             // Create claims for the user
             var claims = new List<Claim>
             {
-                new Claim(ClaimTypes.NameIdentifier, credential.User.Uid),
-                new Claim(ClaimTypes.Email, credential.User.Info.Email ?? Input.Email),
-                new Claim(ClaimTypes.Name, credential.User.Info.DisplayName ?? "User"),
+                new Claim(ClaimTypes.NameIdentifier, decodedToken.Uid),
+                new Claim(ClaimTypes.Email, userRecord.Email ?? decodedToken.Claims.GetValueOrDefault("email")?.ToString() ?? ""),
+                new Claim(ClaimTypes.Name, userRecord.DisplayName ?? decodedToken.Claims.GetValueOrDefault("name")?.ToString() ?? "User"),
             };
 
             var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
             var authProperties = new AuthenticationProperties
             {
-                IsPersistent = Input.RememberMe,
-                ExpiresUtc = Input.RememberMe 
+                IsPersistent = request.RememberMe,
+                ExpiresUtc = request.RememberMe 
                     ? DateTimeOffset.UtcNow.AddDays(30) 
                     : DateTimeOffset.UtcNow.AddMinutes(30)
             };
@@ -67,81 +77,14 @@ public class LoginPageModel : PageModel
                 new ClaimsPrincipal(claimsIdentity),
                 authProperties);
 
-            _logger.LogInformation("User logged in successfully: {Email}", Input.Email);
+            _logger.LogInformation("User logged in successfully with Firebase: {Email}", userRecord.Email);
 
-            return LocalRedirect(returnUrl);
+            return new OkResult();
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Error logging in user");
-            ErrorMessage = "Invalid email or password.";
-            ModelState.AddModelError(string.Empty, ErrorMessage);
-            return Page();
+            _logger.LogError(ex, "Error verifying Firebase token");
+            return new BadRequestObjectResult(ex.Message);
         }
-    }
-
-    public IActionResult OnPostGoogleLogin()
-    {
-        var properties = new AuthenticationProperties 
-        { 
-            RedirectUri = Url.Page("/Login", pageHandler: "GoogleResponse")
-        };
-        return Challenge(properties, GoogleDefaults.AuthenticationScheme);
-    }
-
-    public async Task<IActionResult> OnGetGoogleResponseAsync()
-    {
-        // Authenticate using the external authentication scheme
-        var result = await HttpContext.AuthenticateAsync(GoogleDefaults.AuthenticationScheme);
-        
-        if (!result.Succeeded)
-        {
-            ErrorMessage = "Google authentication failed.";
-            return RedirectToPage();
-        }
-
-        // Extract user information from the external authentication result
-        var externalUser = result.Principal;
-        if (externalUser == null)
-        {
-            ErrorMessage = "Unable to retrieve user information from Google.";
-            return RedirectToPage();
-        }
-
-        // Validate required claims
-        var nameIdentifier = externalUser.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        var email = externalUser.FindFirst(ClaimTypes.Email)?.Value;
-        var name = externalUser.FindFirst(ClaimTypes.Name)?.Value;
-
-        if (string.IsNullOrEmpty(nameIdentifier) || string.IsNullOrEmpty(email))
-        {
-            ErrorMessage = "Unable to retrieve required information from Google account.";
-            return RedirectToPage();
-        }
-
-        // Create claims for the user
-        var claims = new List<Claim>
-        {
-            new Claim(ClaimTypes.NameIdentifier, nameIdentifier),
-            new Claim(ClaimTypes.Email, email),
-            new Claim(ClaimTypes.Name, name ?? email)
-        };
-
-        var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-        var authProperties = new AuthenticationProperties
-        {
-            IsPersistent = true,
-            ExpiresUtc = DateTimeOffset.UtcNow.AddMinutes(30)
-        };
-
-        // Sign in the user with cookie authentication
-        await HttpContext.SignInAsync(
-            CookieAuthenticationDefaults.AuthenticationScheme,
-            new ClaimsPrincipal(claimsIdentity),
-            authProperties);
-
-        _logger.LogInformation("User logged in with Google successfully: {Email}", email);
-
-        return RedirectToPage("/Index");
     }
 }

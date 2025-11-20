@@ -1,71 +1,68 @@
-using Firebase.Auth;
-using Firebase.Auth.Providers;
+using FirebaseAdmin;
+using FirebaseAdmin.Auth;
+using Google.Apis.Auth.OAuth2;
 using FirebaseAuthApp.Models;
 
 namespace FirebaseAuthApp.Services;
 
 public interface IFirebaseAuthService
 {
-    Task<UserCredential> RegisterWithEmailPasswordAsync(string email, string password, string displayName);
-    Task<UserCredential> SignInWithEmailPasswordAsync(string email, string password);
-    Task SignOutAsync();
+    Task<FirebaseToken> VerifyIdTokenAsync(string idToken);
+    Task<UserRecord> GetUserAsync(string uid);
 }
 
 public class FirebaseAuthService : IFirebaseAuthService
 {
-    private readonly FirebaseAuthClient _authClient;
+    private readonly FirebaseAuth _auth;
+    private readonly ILogger<FirebaseAuthService> _logger;
 
-    public FirebaseAuthService(IConfiguration configuration)
+    public FirebaseAuthService(IConfiguration configuration, ILogger<FirebaseAuthService> logger)
     {
+        _logger = logger;
         var firebaseConfig = configuration.GetSection("Firebase").Get<FirebaseConfig>();
         
-        if (firebaseConfig == null || string.IsNullOrEmpty(firebaseConfig.ApiKey))
+        if (firebaseConfig == null || string.IsNullOrEmpty(firebaseConfig.ProjectId))
         {
             throw new InvalidOperationException("Firebase configuration is not properly set in appsettings.json");
         }
 
-        var config = new FirebaseAuthConfig
+        // Initialize Firebase Admin SDK if not already initialized
+        if (FirebaseApp.DefaultInstance == null)
         {
-            ApiKey = firebaseConfig.ApiKey,
-            AuthDomain = firebaseConfig.AuthDomain,
-            Providers = new FirebaseAuthProvider[]
+            FirebaseApp.Create(new AppOptions()
             {
-                new EmailProvider()
-            }
-        };
+                Credential = GoogleCredential.FromAccessToken(null),
+                ProjectId = firebaseConfig.ProjectId
+            });
+        }
 
-        _authClient = new FirebaseAuthClient(config);
+        _auth = FirebaseAuth.DefaultInstance;
     }
 
-    public async Task<UserCredential> RegisterWithEmailPasswordAsync(string email, string password, string displayName)
+    public async Task<FirebaseToken> VerifyIdTokenAsync(string idToken)
     {
         try
         {
-            var credential = await _authClient.CreateUserWithEmailAndPasswordAsync(email, password, displayName);
-            return credential;
+            var decodedToken = await _auth.VerifyIdTokenAsync(idToken);
+            return decodedToken;
         }
         catch (FirebaseAuthException ex)
         {
-            throw new InvalidOperationException($"Registration failed: {ex.Reason}", ex);
+            _logger.LogError(ex, "Error verifying Firebase ID token");
+            throw new InvalidOperationException("Invalid ID token", ex);
         }
     }
 
-    public async Task<UserCredential> SignInWithEmailPasswordAsync(string email, string password)
+    public async Task<UserRecord> GetUserAsync(string uid)
     {
         try
         {
-            var credential = await _authClient.SignInWithEmailAndPasswordAsync(email, password);
-            return credential;
+            return await _auth.GetUserAsync(uid);
         }
         catch (FirebaseAuthException ex)
         {
-            throw new InvalidOperationException($"Sign in failed: {ex.Reason}", ex);
+            _logger.LogError(ex, "Error getting user from Firebase");
+            throw new InvalidOperationException("Unable to get user", ex);
         }
-    }
-
-    public Task SignOutAsync()
-    {
-        // Firebase client-side sign out is handled on the client
-        return Task.CompletedTask;
     }
 }
