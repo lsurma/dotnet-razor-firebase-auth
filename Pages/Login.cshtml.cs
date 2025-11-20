@@ -14,6 +14,11 @@ public class FirebaseTokenRequest
     public bool RememberMe { get; set; }
 }
 
+// Note: IgnoreAntiforgeryToken is applied to the entire page model because Razor Pages
+// doesn't support applying it to individual handlers. This is acceptable here because:
+// 1. The only POST handler is OnPostFirebaseTokenAsync which receives a Firebase ID token
+// 2. The Firebase ID token itself provides authentication and prevents CSRF
+// 3. The token is verified server-side before any action is taken
 [IgnoreAntiforgeryToken]
 public class LoginPageModel : PageModel
 {

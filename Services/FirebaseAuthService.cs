@@ -54,7 +54,13 @@ public class FirebaseAuthService : IFirebaseAuthService
     {
         try
         {
-            var decodedToken = await _auth.VerifyIdTokenAsync(idToken);
+            // VerifyIdTokenAsync automatically checks:
+            // 1. Token signature
+            // 2. Token expiration (exp claim)
+            // 3. Token issuer
+            // 4. Token audience (project ID)
+            // If checkRevoked parameter is true, it also checks if the token has been revoked
+            var decodedToken = await _auth.VerifyIdTokenAsync(idToken, checkRevoked: true);
             return decodedToken;
         }
         catch (FirebaseAuthException ex)

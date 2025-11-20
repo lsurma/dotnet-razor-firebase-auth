@@ -63,12 +63,7 @@
                 signInSuccessWithAuthResult: function(authResult, redirectUrl) {
                     // Get the ID token
                     authResult.user.getIdToken().then(function(idToken) {
-                        // Create form data
-                        const formData = new FormData();
-                        formData.append('idToken', idToken);
-                        formData.append('rememberMe', 'true');
-                        
-                        // Send token to server using form post
+                        // Send token to server using JSON
                         fetch('/Login?handler=FirebaseToken', {
                             method: 'POST',
                             headers: {
