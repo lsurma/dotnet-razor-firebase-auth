@@ -10,6 +10,8 @@ namespace FirebaseAuthApp.Pages;
 
 public class RegisterPageModel : PageModel
 {
+    private const string NewsletterSubscriptionClaimType = "newsletter_subscription";
+    
     private readonly IFirebaseAuthService _firebaseAuthService;
     private readonly ILogger<RegisterPageModel> _logger;
 
@@ -51,13 +53,8 @@ public class RegisterPageModel : PageModel
                 new Claim(ClaimTypes.NameIdentifier, credential.User.Uid),
                 new Claim(ClaimTypes.Email, credential.User.Info.Email ?? Input.Email),
                 new Claim(ClaimTypes.Name, credential.User.Info.DisplayName ?? Input.DisplayName ?? "User"),
+                new Claim(NewsletterSubscriptionClaimType, Input.SubscribeToNewsletter.ToString().ToLower())
             };
-
-            // Add newsletter subscription claim if user opted in
-            if (Input.SubscribeToNewsletter)
-            {
-                claims.Add(new Claim("newsletter_subscription", "true"));
-            }
 
             var claimsIdentity = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
             var authProperties = new AuthenticationProperties
