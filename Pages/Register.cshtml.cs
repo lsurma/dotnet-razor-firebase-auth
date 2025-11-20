@@ -4,6 +4,7 @@ using FirebaseAuthApp.Models;
 using FirebaseAuthApp.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.AspNetCore.Authentication.Google;
 using System.Security.Claims;
 
 namespace FirebaseAuthApp.Pages;
@@ -80,5 +81,29 @@ public class RegisterPageModel : PageModel
             ModelState.AddModelError(string.Empty, ex.Message);
             return Page();
         }
+    }
+
+    public IActionResult OnPostGoogleRegister()
+    {
+        var properties = new AuthenticationProperties 
+        { 
+            RedirectUri = Url.Page("/Register", pageHandler: "GoogleResponse")
+        };
+        return Challenge(properties, GoogleDefaults.AuthenticationScheme);
+    }
+
+    public async Task<IActionResult> OnGetGoogleResponseAsync()
+    {
+        var result = await HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+        
+        if (!result.Succeeded)
+        {
+            ErrorMessage = "Google authentication failed.";
+            return RedirectToPage();
+        }
+
+        _logger.LogInformation("User registered with Google successfully");
+
+        return RedirectToPage("/Index");
     }
 }
