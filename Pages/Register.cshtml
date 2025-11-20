@@ -67,8 +67,7 @@
                         fetch('/Register?handler=FirebaseToken', {
                             method: 'POST',
                             headers: {
-                                'Content-Type': 'application/json',
-                                'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                                'Content-Type': 'application/json'
                             },
                             body: JSON.stringify({ 
                                 idToken: idToken
@@ -105,7 +104,4 @@
         // Start FirebaseUI
         ui.start('#firebaseui-auth-container', uiConfig);
     </script>
-    
-    <!-- Anti-forgery token for AJAX requests -->
-    <input type="hidden" name="__RequestVerificationToken" value="@Html.AntiForgeryToken()" />
 }

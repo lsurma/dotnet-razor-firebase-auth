@@ -8,6 +8,7 @@ using System.Security.Claims;
 
 namespace FirebaseAuthApp.Pages;
 
+[IgnoreAntiforgeryToken]
 public class RegisterPageModel : PageModel
 {
     private readonly IFirebaseAuthService _firebaseAuthService;

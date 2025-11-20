@@ -15,6 +15,7 @@ public class FirebaseAuthService : IFirebaseAuthService
 {
     private readonly FirebaseAuth _auth;
     private readonly ILogger<FirebaseAuthService> _logger;
+    private readonly string _projectId;
 
     public FirebaseAuthService(IConfiguration configuration, ILogger<FirebaseAuthService> logger)
     {
@@ -26,14 +27,24 @@ public class FirebaseAuthService : IFirebaseAuthService
             throw new InvalidOperationException("Firebase configuration is not properly set in appsettings.json");
         }
 
+        _projectId = firebaseConfig.ProjectId;
+
         // Initialize Firebase Admin SDK if not already initialized
+        // Note: For ID token verification, we don't need service account credentials
+        // Firebase Admin SDK can verify tokens using public keys
         if (FirebaseApp.DefaultInstance == null)
         {
-            FirebaseApp.Create(new AppOptions()
+            try
             {
-                Credential = GoogleCredential.FromAccessToken(null),
-                ProjectId = firebaseConfig.ProjectId
-            });
+                FirebaseApp.Create(new AppOptions()
+                {
+                    ProjectId = _projectId
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Error initializing Firebase Admin SDK, attempting to use existing instance");
+            }
         }
 
         _auth = FirebaseAuth.DefaultInstance;

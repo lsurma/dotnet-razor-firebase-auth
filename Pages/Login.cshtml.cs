@@ -14,6 +14,7 @@ public class FirebaseTokenRequest
     public bool RememberMe { get; set; }
 }
 
+[IgnoreAntiforgeryToken]
 public class LoginPageModel : PageModel
 {
     private readonly IFirebaseAuthService _firebaseAuthService;

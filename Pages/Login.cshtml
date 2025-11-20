@@ -63,12 +63,16 @@
                 signInSuccessWithAuthResult: function(authResult, redirectUrl) {
                     // Get the ID token
                     authResult.user.getIdToken().then(function(idToken) {
-                        // Send token to server
+                        // Create form data
+                        const formData = new FormData();
+                        formData.append('idToken', idToken);
+                        formData.append('rememberMe', 'true');
+                        
+                        // Send token to server using form post
                         fetch('/Login?handler=FirebaseToken', {
                             method: 'POST',
                             headers: {
-                                'Content-Type': 'application/json',
-                                'RequestVerificationToken': document.querySelector('input[name="__RequestVerificationToken"]').value
+                                'Content-Type': 'application/json'
                             },
                             body: JSON.stringify({ 
                                 idToken: idToken,
@@ -103,7 +107,4 @@
         // Start FirebaseUI
         ui.start('#firebaseui-auth-container', uiConfig);
     </script>
-    
-    <!-- Anti-forgery token for AJAX requests -->
-    <input type="hidden" name="__RequestVerificationToken" value="@Html.AntiForgeryToken()" />
 }
