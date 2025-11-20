@@ -111,12 +111,23 @@ public class RegisterPageModel : PageModel
             return RedirectToPage();
         }
 
+        // Validate required claims
+        var nameIdentifier = externalUser.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var email = externalUser.FindFirst(ClaimTypes.Email)?.Value;
+        var name = externalUser.FindFirst(ClaimTypes.Name)?.Value;
+
+        if (string.IsNullOrEmpty(nameIdentifier) || string.IsNullOrEmpty(email))
+        {
+            ErrorMessage = "Unable to retrieve required information from Google account.";
+            return RedirectToPage();
+        }
+
         // Create claims for the user
         var claims = new List<Claim>
         {
-            new Claim(ClaimTypes.NameIdentifier, externalUser.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? Guid.NewGuid().ToString()),
-            new Claim(ClaimTypes.Email, externalUser.FindFirst(ClaimTypes.Email)?.Value ?? ""),
-            new Claim(ClaimTypes.Name, externalUser.FindFirst(ClaimTypes.Name)?.Value ?? "User"),
+            new Claim(ClaimTypes.NameIdentifier, nameIdentifier),
+            new Claim(ClaimTypes.Email, email),
+            new Claim(ClaimTypes.Name, name ?? email),
             new Claim(NewsletterSubscriptionClaimType, "false") // Default newsletter to false for social registration
         };
 
@@ -133,7 +144,7 @@ public class RegisterPageModel : PageModel
             new ClaimsPrincipal(claimsIdentity),
             authProperties);
 
-        _logger.LogInformation("User registered with Google successfully");
+        _logger.LogInformation("User registered with Google successfully: {Email}", email);
 
         return RedirectToPage("/Index");
     }
