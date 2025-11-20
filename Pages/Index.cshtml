@@ -1,0 +1,29 @@
+﻿@page
+@model IndexModel
+@{
+    ViewData["Title"] = "Home page";
+}
+
+<div class="text-center home-container">
+    <h1 class="display-4">Welcome to Firebase Auth App</h1>
+    
+    @if (User.Identity?.IsAuthenticated == true)
+    {
+        <div class="user-info">
+            <h2>Hello, @User.Identity.Name!</h2>
+            <p class="lead">You are successfully authenticated.</p>
+            <p>Email: @User.FindFirst(System.Security.Claims.ClaimTypes.Email)?.Value</p>
+            <div class="mt-4">
+                <a asp-page="/Logout" class="btn btn-outline-primary">Sign Out</a>
+            </div>
+        </div>
+    }
+    else
+    {
+        <p class="lead">Get started by signing in or creating an account.</p>
+        <div class="mt-4">
+            <a asp-page="/Login" class="btn btn-primary me-2">Sign In</a>
+            <a asp-page="/Register" class="btn btn-outline-primary">Register</a>
+        </div>
+    }
+</div>
